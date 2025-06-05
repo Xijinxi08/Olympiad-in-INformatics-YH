@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>团队协作表格</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36D399',
+                        warning: '#FFAA33',
+                        danger: '#FF5252',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .table-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            }
+            .btn-hover {
+                @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+            }
+            .input-focus {
+                @apply focus:ring-2 focus:ring-primary/50 focus:border-primary;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter text-dark min-h-screen flex flex-col">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm transition-all duration-300">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-white">
+                    <i class="fa fa-table text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-primary">协作表格</h1>
+                    <p class="text-xs text-gray-500">多人实时编辑</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <button id="saveBtn" class="px-4 py-2 bg-primary text-white rounded-lg flex items-center space-x-2 btn-hover">
+                    <i class="fa fa-save"></i>
+                    <span>保存</span>
+                </button>
+                
+                <div class="relative">
+                    <button id="userMenuBtn" class="flex items-center space-x-2 focus:outline-none">
+                        <img src="https://picsum.photos/32/32?random=1" alt="用户头像" class="w-8 h-8 rounded-full object-cover">
+                        <span class="hidden md:inline-block text-sm font-medium">张三</span>
+                        <i class="fa fa-chevron-down text-xs text-gray-500"></i>
+                    </button>
+                    
+                    <div id="userMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 hidden transform origin-top-right transition-all duration-200 ease-in-out">
+                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fa fa-user-circle mr-2"></i>个人资料
+                        </a>
+                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fa fa-cog mr-2"></i>设置
+                        </a>
+                        <div class="border-t border-gray-100 my-1"></div>
+                        <a href="#" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                            <i class="fa fa-sign-out mr-2"></i>退出登录
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-6">
+        <!-- 表格标题和操作区 -->
+        <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h2 class="text-[clamp(1.5rem,3vw,2rem)] font-bold text-gray-800">项目进度跟踪表</h2>
+                <p class="text-gray-500 mt-1">最后编辑于: <span id="lastModified">2025-06-05 14:30</span></p>
+            </div>
+            
+            <div class="flex flex-wrap gap-3">
+                <button id="addRowBtn" class="px-4 py-2 bg-secondary text-white rounded-lg flex items-center space-x-2 btn-hover">
+                    <i class="fa fa-plus"></i>
+                    <span>添加行</span>
+                </button>
+                
+                <button id="deleteSelectedBtn" class="px-4 py-2 bg-danger text-white rounded-lg flex items-center space-x-2 btn-hover opacity-50 cursor-not-allowed">
+                    <i class="fa fa-trash"></i>
+                    <span>删除选中</span>
+                </button>
+                
+                <div class="relative">
+                    <button id="exportBtn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg flex items-center space-x-2 btn-hover">
+                        <i class="fa fa-download"></i>
+                        <span>导出</span>
+                    </button>
+                    
+                    <div id="exportMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 hidden">
+                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fa fa-file-excel-o mr-2"></i>Excel (.xlsx)
+                        </a>
+                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fa fa-file-csv mr-2"></i>CSV (.csv)
+                        </a>
+                        <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i class="fa fa-file-pdf-o mr-2"></i>PDF (.pdf)
+                        </a>
+                    </div>
+                </div>
+                
+                <button id="shareBtn" class="px-4 py-2 bg-primary text-white rounded-lg flex items-center space-x-2 btn-hover">
+                    <i class="fa fa-share-alt"></i>
+                    <span>分享</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 数据统计卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">总条目</p>
+                        <h3 class="text-2xl font-bold mt-1">24</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                        <i class="fa fa-list"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-green-600 flex items-center">
+                    <i class="fa fa-arrow-up mr-1"></i>
+                    <span>较上周增长 12%</span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">已完成</p>
+                        <h3 class="text-2xl font-bold mt-1">18</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                        <i class="fa fa-check-circle"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-green-600 flex items-center">
+                    <i class="fa fa-arrow-up mr-1"></i>
+                    <span>较上周增长 8%</span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">进行中</p>
+                        <h3 class="text-2xl font-bold mt-1">6</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center text-warning">
+                        <i class="fa fa-spinner"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-gray-500 flex items-center">
+                    <i class="fa fa-minus mr-1"></i>
+                    <span>与上周持平</span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">逾期</p>
+                        <h3 class="text-2xl font-bold mt-1">2</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center text-danger">
+                        <i class="fa fa-exclamation-triangle"></i>
+                    </div>
+                </div>
+                <div class="mt-3 text-xs text-red-600 flex items-center">
+                    <i class="fa fa-arrow-down mr-1"></i>
+                    <span>较上周减少 33%</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 表格区域 -->
+        <div class="bg-white rounded-xl overflow-hidden table-shadow mb-6">
+            <div class="overflow-x-auto scrollbar-hide">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-50 text-left">
+                            <th class="px-6 py-4 w-12">
+                                <input type="checkbox" id="selectAll" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/50">
+                            </th>
+                            <th class="px-6 py-4 font-semibold text-gray-700">
+                                <div class="flex items-center cursor-pointer">
+                                    <span>任务名称</span>
+                                    <i class="fa fa-sort ml-1 text-gray-400"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 font-semibold text-gray-700">
+                                <div class="flex items-center cursor-pointer">
+                                    <span>负责人</span>
+                                    <i class="fa fa-sort ml-1 text-gray-400"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 font-semibold text-gray-700">
+                                <div class="flex items-center cursor-pointer">
+                                    <span>开始日期</span>
+                                    <i class="fa fa-sort ml-1 text-gray-400"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 font-semibold text-gray-700">
+                                <div class="flex items-center cursor-pointer">
+                                    <span>截止日期</span>
+                                    <i class="fa fa-sort-desc ml-1 text-gray-600"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 font-semibold text-gray-700">
+                                <div class="flex items-center cursor-pointer">
+                                    <span>进度</span>
+                                    <i class="fa fa-sort ml-1 text-gray-400"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 font-semibold text-gray-700">
+                                <div class="flex items-center cursor-pointer">
+                                    <span>优先级</span>
+                                    <i class="fa fa-sort ml-1 text-gray-400"></i>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 font-semibold text-gray-700">
+                                <div class="flex items-center justify-center">
+                                    <span>操作</span>
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr class="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                            <td class="px-6 py-4">
+                                <input type="checkbox" class="row-checkbox w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/50">
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="font-medium">网站首页改版</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <img src="https://picsum.photos/32/32?random=2" alt="李四" class="w-7 h-7 rounded-full mr-2">
+                                    <span>李四</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <input type="date" value="2025-05-20" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                            </td>
+                            <td class="px-6 py-4">
+                                <input type="date" value="2025-06-10" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                                        <div class="bg-secondary h-2.5 rounded-full" style="width: 80%"></div>
+                                    </div>
+                                    <span class="text-sm font-medium">80%</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">高</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex justify-center space-x-2">
+                                    <button class="p-1.5 text-gray-500 hover:text-primary transition-colors" title="编辑">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 text-gray-500 hover:text-danger transition-colors" title="删除">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                            <td class="px-6 py-4">
+                                <input type="checkbox" class="row-checkbox w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/50">
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="font-medium">用户注册流程优化</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <img src="https://picsum.photos/32/32?random=3" alt="王五" class="w-7 h-7 rounded-full mr-2">
+                                    <span>王五</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <input type="date" value="2025-05-25" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                            </td>
+                            <td class="px-6 py-4">
+                                <input type="date" value="2025-06-05" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                                        <div class="bg-warning h-2.5 rounded-full" style="width: 45%"></div>
+                                    </div>
+                                    <span class="text-sm font-medium">45%</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">中</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex justify-center space-x-2">
+                                    <button class="p-1.5 text-gray-500 hover:text-primary transition-colors" title="编辑">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 text-gray-500 hover:text-danger transition-colors" title="删除">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                            <td class="px-6 py-4">
+                                <input type="checkbox" class="row-checkbox w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/50">
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="font-medium">移动端适配</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <img src="https://picsum.photos/32/32?random=4" alt="赵六" class="w-7 h-7 rounded-full mr-2">
+                                    <span>赵六</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <input type="date" value="2025-06-01" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                            </td>
+                            <td class="px-6 py-4">
+                                <input type="date" value="2025-06-20" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                                        <div class="bg-primary h-2.5 rounded-full" style="width: 30%"></div>
+                                    </div>
+                                    <span class="text-sm font-medium">30%</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">中</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex justify-center space-x-2">
+                                    <button class="p-1.5 text-gray-500 hover:text-primary transition-colors" title="编辑">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 text-gray-500 hover:text-danger transition-colors" title="删除">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                            <td class="px-6 py-4">
+                                <input type="checkbox" class="row-checkbox w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/50">
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="font-medium">API接口文档更新</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <img src="https://picsum.photos/32/32?random=5" alt="孙七" class="w-7 h-7 rounded-full mr-2">
+                                    <span>孙七</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <input type="date" value="2025-05-15" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                            </td>
+                            <td class="px-6 py-4">
+                                <input type="date" value="2025-05-30" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                                        <div class="bg-secondary h-2.5 rounded-full" style="width: 100%"></div>
+                                    </div>
+                                    <span class="text-sm font-medium">100%</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">低</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex justify-center space-x-2">
+                                    <button class="p-1.5 text-gray-500 hover:text-primary transition-colors" title="编辑">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 text-gray-500 hover:text-danger transition-colors" title="删除">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- 分页 -->
+            <div class="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center">
+                <div class="mb-4 sm:mb-0 text-sm text-gray-500">
+                    显示 <span class="font-medium">1</span> 到 <span class="font-medium">4</span> 条，共 <span class="font-medium">24</span> 条
+                </div>
+                
+                <div class="flex items-center space-x-1">
+                    <button class="px-3 py-1.5 rounded border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fa fa-chevron-left text-xs"></i>
+                    </button>
+                    <button class="px-3 py-1.5 rounded border border-primary bg-primary text-white">1</button>
+                    <button class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">2</button>
+                    <button class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">3</button>
+                    <button class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">4</button>
+                    <button class="px-3 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">5</button>
+                    <button class="px-3 py-1.5 rounded border border-gray-300 text-gray-500 hover:bg-gray-50">
+                        <i class="fa fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 进度图表 -->
+        <div class="bg-white rounded-xl p-5 table-shadow">
+            <h3 class="text-lg font-semibold mb-4">项目进度概览</h3>
+            <div class="h-80">
+                <canvas id="progressChart"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 py-4">
+        <div class="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
+            <div class="text-sm text-gray-500 mb-4 md:mb-0">
+                © 2025 协作表格. 保留所有权利.
+            </div>
+            
+            <div class="flex space-x-6">
+                <a href="#" class="text-gray-500 hover:text-primary transition-colors">
+                    <i class="fa fa-question-circle mr-1"></i>帮助中心
+                </a>
+                <a href="#" class="text-gray-500 hover:text-primary transition-colors">
+                    <i class="fa fa-file-text-o mr-1"></i>使用条款
+                </a>
+                <a href="#" class="text-gray-500 hover:text-primary transition-colors">
+                    <i class="fa fa-shield mr-1"></i>隐私政策
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 添加新行模态框 -->
+    <div id="addRowModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl w-full max-w-2xl mx-4 overflow-hidden transform transition-all duration-300 scale-95 opacity-0" id="modalContent">
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-semibold">添加新任务</h3>
+                <button id="closeModalBtn" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="px-6 py-4">
+                <form id="addRowForm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="taskName" class="block text-sm font-medium text-gray-700 mb-1">任务名称</label>
+                            <input type="text" id="taskName" class="w-full border border-gray-300 rounded-md px-3 py-2 input-focus" placeholder="输入任务名称">
+                        </div>
+                        
+                        <div>
+                            <label for="assignee" class="block text-sm font-medium text-gray-700 mb-1">负责人</label>
+                            <select id="assignee" class="w-full border border-gray-300 rounded-md px-3 py-2 input-focus">
+                                <option value="1">张三</option>
+                                <option value="2">李四</option>
+                                <option value="3">王五</option>
+                                <option value="4">赵六</option>
+                                <option value="5">孙七</option>
+                                <option value="6">周八</option>
+                                <option value="7">吴九</option>
+                                <option value="8">郑十</option>
+                                <option value="9">钱十一</option>
+                                <option value="10">孙十二</option>
+                                <option value="11">李十三</option>
+                                <option value="12">周十四</option>
+                                <option value="13">吴十五</option>
+                                <option value="14">郑十六</option>
+                                <option value="15">王十七</option>
+                                <option value="16">赵十八</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
+                            <input type="date" id="startDate" class="w-full border border-gray-300 rounded-md px-3 py-2 input-focus">
+                        </div>
+                        
+                        <div>
+                            <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">截止日期</label>
+                            <input type="date" id="endDate" class="w-full border border-gray-300 rounded-md px-3 py-2 input-focus">
+                        </div>
+                        
+                        <div>
+                            <label for="progress" class="block text-sm font-medium text-gray-700 mb-1">进度 (%)</label>
+                            <input type="number" id="progress" min="0" max="100" class="w-full border border-gray-300 rounded-md px-3 py-2 input-focus" placeholder="0-100">
+                        </div>
+                        
+                        <div>
+                            <label for="priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+                            <select id="priority" class="w-full border border-gray-300 rounded-md px-3 py-2 input-focus">
+                                <option value="high">高</option>
+                                <option value="medium">中</option>
+                                <option value="low">低</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-gray-100 flex justify-end space-x-3">
+                <button id="cancelAddBtn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 btn-hover">
+                    取消
+                </button>
+                <button id="confirmAddBtn" class="px-4 py-2 bg-primary text-white rounded-lg btn-hover">
+                    添加
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分享模态框 -->
+    <div id="shareModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl w-full max-w-md mx-4 overflow-hidden transform transition-all duration-300 scale-95 opacity-0" id="shareModalContent">
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg font-semibold">分享协作表格</h3>
+                <button id="closeShareModalBtn" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="px-6 py-4">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">分享链接</label>
+                    <div class="flex">
+                        <input type="text" value="https://collab-table.example.com/s/abc123" class="flex-1 border border-gray-300 rounded-l-md px-3 py-2 input-focus" readonly>
+                        <button class="px-4 py-2 bg-primary text-white rounded-r-lg btn-hover">
+                            <i class="fa fa-copy mr-1"></i>复制
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">通过邮件邀请</label>
+                    <div class="flex">
+                        <input type="email" placeholder="输入邮箱地址" class="flex-1 border border-gray-300 rounded-l-md px-3 py-2 input-focus">
+                        <button class="px-4 py-2 bg-primary text-white rounded-r-lg btn-hover">
+                            <i class="fa fa-paper-plane mr-1"></i>邀请
+                        </button>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">当前协作者</label>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md">
+                            <div class="flex items-center">
+                                <img src="https://picsum.photos/32/32?random=1" alt="张三" class="w-7 h-7 rounded-full mr-2">
+                                <div>
+                                    <div class="text-sm font-medium">张三</div>
+                                    <div class="text-xs text-gray-500">zhangsan@example.com</div>
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-500">所有者</div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md">
+                            <div class="flex items-center">
+                                <img src="https://picsum.photos/32/32?random=2" alt="李四" class="w-7 h-7 rounded-full mr-2">
+                                <div>
+                                    <div class="text-sm font-medium">李四</div>
+                                    <div class="text-xs text-gray-500">lisi@example.com</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <select class="text-xs border border-gray-300 rounded-md px-2 py-1">
+                                    <option>编辑权限</option>
+                                    <option>查看权限</option>
+                                </select>
+                                <button class="text-gray-400 hover:text-danger">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md">
+                            <div class="flex items-center">
+                                <img src="https://picsum.photos/32/32?random=3" alt="王五" class="w-7 h-7 rounded-full mr-2">
+                                <div>
+                                    <div class="text-sm font-medium">王五</div>
+                                    <div class="text-xs text-gray-500">wangwu@example.com</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <select class="text-xs border border-gray-300 rounded-md px-2 py-1">
+                                    <option>编辑权限</option>
+                                    <option>查看权限</option>
+                                </select>
+                                <button class="text-gray-400 hover:text-danger">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-gray-100">
+                <div class="flex items-center">
+                    <input type="checkbox" id="allowEdit" class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/50">
+                    <label for="allowEdit" class="ml-2 text-sm text-gray-700">允许所有协作者邀请新成员</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 等待DOM加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化图表
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            const progressChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+                    datasets: [{
+                        label: '已完成任务',
+                        data: [5, 3, 6, 2, 7, 4, 3],
+                        backgroundColor: '#36D399',
+                        borderRadius: 4
+                    }, {
+                        label: '进行中任务',
+                        data: [2, 4, 1, 3, 2, 1, 0],
+                        backgroundColor: '#165DFF',
+                        borderRadius: 4
+                    }, {
+                        label: '逾期任务',
+                        data: [1, 0, 2, 0, 1, 0, 0],
+                        backgroundColor: '#FF5252',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                display: true,
+                                drawBorder: false,
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false,
+                                drawBorder: false,
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 用户菜单交互
+            const userMenuBtn = document.getElementById('userMenuBtn');
+            const userMenu = document.getElementById('userMenu');
+            
+            userMenuBtn.addEventListener('click', function() {
+                userMenu.classList.toggle('hidden');
+            });
+            
+            // 点击页面其他地方关闭用户菜单
+            document.addEventListener('click', function(event) {
+                if (!userMenuBtn.contains(event.target) && !userMenu.contains(event.target)) {
+                    userMenu.classList.add('hidden');
+                }
+            });
+            
+            // 导出菜单交互
+            const exportBtn = document.getElementById('exportBtn');
+            const exportMenu = document.getElementById('exportMenu');
+            
+            exportBtn.addEventListener('click', function() {
+                exportMenu.classList.toggle('hidden');
+            });
+            
+            // 点击页面其他地方关闭导出菜单
+            document.addEventListener('click', function(event) {
+                if (!exportBtn.contains(event.target) && !exportMenu.contains(event.target)) {
+                    exportMenu.classList.add('hidden');
+                }
+            });
+            
+            // 添加行模态框交互
+            const addRowBtn = document.getElementById('addRowBtn');
+            const addRowModal = document.getElementById('addRowModal');
+            const modalContent = document.getElementById('modalContent');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const cancelAddBtn = document.getElementById('cancelAddBtn');
+            const confirmAddBtn = document.getElementById('confirmAddBtn');
+            
+            addRowBtn.addEventListener('click', function() {
+                addRowModal.classList.remove('hidden');
+                // 添加动画效果
+                setTimeout(() => {
+                    modalContent.classList.remove('scale-95', 'opacity-0');
+                    modalContent.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            });
+            
+            function closeModal() {
+                modalContent.classList.remove('scale-100', 'opacity-100');
+                modalContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    addRowModal.classList.add('hidden');
+                }, 300);
+            }
+            
+            closeModalBtn.addEventListener('click', closeModal);
+            cancelAddBtn.addEventListener('click', closeModal);
+            
+            // 添加新行逻辑
+            confirmAddBtn.addEventListener('click', function() {
+                const taskName = document.getElementById('taskName').value;
+                const assignee = document.getElementById('assignee').value;
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                const progress = document.getElementById('progress').value;
+                const priority = document.getElementById('priority').value;
+                
+                // 简单验证
+                if (!taskName || !assignee || !startDate || !endDate || !progress || !priority) {
+                    alert('请填写所有必填字段');
+                    return;
+                }
+                
+                // 这里应该有AJAX请求后端添加数据的逻辑
+                // 这里仅做前端演示
+                const tableBody = document.getElementById('tableBody');
+                
+                // 创建新行
+                const newRow = document.createElement('tr');
+                newRow.className = 'border-b border-gray-100 hover:bg-gray-50/50 transition-colors';
+                
+                // 设置优先级样式
+                let priorityClass = '';
+                let priorityText = '';
+                switch(priority) {
+                    case 'high':
+                        priorityClass = 'bg-red-100 text-red-800';
+                        priorityText = '高';
+                        break;
+                    case 'medium':
+                        priorityClass = 'bg-yellow-100 text-yellow-800';
+                        priorityText = '中';
+                        break;
+                    case 'low':
+                        priorityClass = 'bg-green-100 text-green-800';
+                        priorityText = '低';
+                        break;
+                }
+                
+                // 设置进度条颜色
+                let progressColor = '';
+                if (progress >= 80) {
+                    progressColor = 'bg-secondary';
+                } else if (progress >= 30) {
+                    progressColor = 'bg-warning';
+                } else {
+                    progressColor = 'bg-primary';
+                }
+                
+                // 设置行内容
+                newRow.innerHTML = `
+                    <td class="px-6 py-4">
+                        <input type="checkbox" class="row-checkbox w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/50">
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="font-medium">${taskName}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            <img src="https://picsum.photos/32/32?random=${assignee}" alt="用户头像" class="w-7 h-7 rounded-full mr-2">
+                            <span>${document.getElementById('assignee').options[assignee-1].text}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <input type="date" value="${startDate}" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                    </td>
+                    <td class="px-6 py-4">
+                        <input type="date" value="${endDate}" class="border border-gray-300 rounded-md px-3 py-1 w-full input-focus">
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mr-2">
+                                <div class="${progressColor} h-2.5 rounded-full" style="width: ${progress}%"></div>
+                            </div>
+                            <span class="text-sm font-medium">${progress}%</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 text-xs font-medium ${priorityClass} rounded-full">${priorityText}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex justify-center space-x-2">
+                            <button class="p-1.5 text-gray-500 hover:text-primary transition-colors" title="编辑">
+                                <i class="fa fa-pencil"></i>
+                            </button>
+                            <button class="p-1.5 text-gray-500 hover:text-danger transition-colors" title="删除">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                
+                // 添加到表格
+                tableBody.insertBefore(newRow, tableBody.firstChild);
+                
+                // 更新统计数据
+                updateStats();
+                
+                // 关闭模态框
+                closeModal();
+                
+                // 重置表单
+                document.getElementById('addRowForm').reset();
+                
+                // 更新最后修改时间
+                updateLastModified();
+                
+                // 显示成功提示
+                showToast('任务添加成功！');
+            });
+            
+            // 全选/取消全选
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+            const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            
+            selectAllCheckbox.addEventListener('change', function() {
+                rowCheckboxes.forEach(checkbox => {
+                    checkbox.checked = selectAllCheckbox.checked;
+                });
+                updateDeleteButtonState();
+            });
+            
+            // 监听行选择状态变化
+            rowCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateDeleteButtonState);
+            });
+            
+            // 更新删除按钮状态
+            function updateDeleteButtonState() {
+                const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+                if (checkedCount > 0) {
+                    deleteSelectedBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    deleteSelectedBtn.classList.add('opacity-100', 'cursor-pointer');
+                } else {
+                    deleteSelectedBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    deleteSelectedBtn.classList.remove('opacity-100', 'cursor-pointer');
+                }
+            }
+            
+            // 删除选中行
+            deleteSelectedBtn.addEventListener('click', function() {
+                if (deleteSelectedBtn.classList.contains('cursor-not-allowed')) return;
+                
+                const checkedRows = document.querySelectorAll('.row-checkbox:checked');
+                if (checkedRows.length === 0) return;
+                
+                if (confirm(`确定要删除选中的 ${checkedRows.length} 行数据吗？`)) {
+                    checkedRows.forEach(checkbox => {
+                        const row = checkbox.closest('tr');
+                        row.classList.add('opacity-0');
+                        row.style.height = row.offsetHeight + 'px';
+                        
+                        // 动画效果
+                        setTimeout(() => {
+                            row.style.transition = 'all 0.3s ease';
+                            row.style.height = '0';
+                            row.style.margin = '0';
+                            row.style.padding = '0';
+                            row.style.overflow = 'hidden';
+                            
+                            setTimeout(() => {
+                                row.remove();
+                                updateStats();
+                                updateLastModified();
+                            }, 300);
+                        }, 10);
+                    });
+                    
+                    // 重置全选状态
+                    selectAllCheckbox.checked = false;
+                    
+                    // 显示成功提示
+                    showToast('已删除选中的任务！');
+                }
+            });
+            
+            // 分享模态框交互
+            const shareBtn = document.getElementById('shareBtn');
+            const shareModal = document.getElementById('shareModal');
+            const shareModalContent = document.getElementById('shareModalContent');
+            const closeShareModalBtn = document.getElementById('closeShareModalBtn');
+            
+            shareBtn.addEventListener('click', function() {
+                shareModal.classList.remove('hidden');
+                // 添加动画效果
+                setTimeout(() => {
+                    shareModalContent.classList.remove('scale-95', 'opacity-0');
+                    shareModalContent.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            });
+            
+            function closeShareModal() {
+                shareModalContent.classList.remove('scale-100', 'opacity-100');
+                shareModalContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    shareModal.classList.add('hidden');
+                }, 300);
+            }
+            
+            closeShareModalBtn.addEventListener('click', closeShareModal);
+            
+            // 点击模态框外部关闭
+            shareModal.addEventListener('click', function(event) {
+                if (event.target === shareModal) {
+                    closeShareModal();
+                }
+            });
+            
+            // 保存按钮交互
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.addEventListener('click', function() {
+                // 这里应该有AJAX请求后端保存数据的逻辑
+                // 这里仅做前端演示
+                updateLastModified();
+                showToast('表格已保存！');
+            });
+            
+            // 更新最后修改时间
+            function updateLastModified() {
+                const now = new Date();
+                const hours = now.getHours().toString().padStart(2, '0');
+                const minutes = now.getMinutes().toString().padStart(2, '0');
+                const year = now.getFullYear();
+                const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                const day = now.getDate().toString().padStart(2, '0');
+                
+                document.getElementById('lastModified').textContent = `${year}-${month}-${day} ${hours}:${minutes}`;
+            }
+            
+            // 更新统计数据
+            function updateStats() {
+                const totalRows = document.querySelectorAll('#tableBody tr').length;
+                let completed = 0;
+                let inProgress = 0;
+                let overdue = 0;
+                
+                document.querySelectorAll('#tableBody tr').forEach(row => {
+                    const progress = parseInt(row.querySelector('.h-2\\.5.rounded-full').style.width);
+                    const endDate = new Date(row.querySelector('input[type="date"]:nth-of-type(2)').value);
+                    const today = new Date();
+                    
+                    if (progress === 100) {
+                        completed++;
+                    } else if (endDate < today && progress < 100) {
+                        overdue++;
+                    } else {
+                        inProgress++;
+                    }
+                });
+                
+                // 更新卡片数据
+                document.querySelectorAll('.grid-cols-1 .text-2xl.font-bold')[0].textContent = totalRows;
+                document.querySelectorAll('.grid-cols-1 .text-2xl.font-bold')[1].textContent = completed;
+                document.querySelectorAll('.grid-cols-1 .text-2xl.font-bold')[2].textContent = inProgress;
+                document.querySelectorAll('.grid-cols-1 .text-2xl.font-bold')[3].textContent = overdue;
+                
+                // 更新图表数据
+                progressChart.data.datasets[0].data = [completed]; // 已完成
+                progressChart.data.datasets[1].data = [inProgress]; // 进行中
+                progressChart.data.datasets[2].data = [overdue]; // 逾期
+                progressChart.update();
+            }
+            
+            // 显示提示消息
+            function showToast(message) {
+                // 创建提示元素
+                const toast = document.createElement('div');
+                toast.className = 'fixed bottom-4 right-4 bg-dark text-white px-4 py-2 rounded-lg shadow-lg z-50 transform translate-y-10 opacity-0 transition-all duration-300';
+                toast.textContent = message;
+                
+                // 添加到页面
+                document.body.appendChild(toast);
+                
+                // 显示动画
+                setTimeout(() => {
+                    toast.classList.remove('translate-y-10', 'opacity-0');
+                }, 10);
+                
+                // 3秒后隐藏
+                setTimeout(() => {
+                    toast.classList.add('translate-y-10', 'opacity-0');
+                    setTimeout(() => {
+                        document.body.removeChild(toast);
+                    }, 300);
+                }, 3000);
+            }
+            
+            // 监听窗口滚动，改变导航栏样式
+            window.addEventListener('scroll', function() {
+                const header = document.querySelector('header');
+                if (window.scrollY > 10) {
+                    header.classList.add('shadow-md');
+                } else {
+                    header.classList.remove('shadow-md');
+                }
+            });
+            
+            // 设置默认日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('startDate').value = today;
+            document.getElementById('endDate').value = new Date(today).setDate(new Date(today).getDate() + 7);
+        });
+    </script>
+</body>
+</html>
+    
